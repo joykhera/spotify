@@ -1,5 +1,3 @@
-import { debounce } from 'lodash';
-
 // Constants
 let accessToken: string | null = null;
 let likedSongs: any = [];
@@ -62,30 +60,50 @@ async function fetchLikedSongs() {
 // Function to add stream count for each row
 async function updateRowsWithStreamCount() {
   const rows = document.querySelectorAll('.main-trackList-trackListRow');
-  // console.log('updateRowsWithStreamCount', likedSongs, rows)
-  likedSongs.forEach((song: any, index: any) => {
-    const row = rows[index];
-    if (row) { // Ensure the row exists
-      const streamCountCell = document.createElement('div');
-      streamCountCell.classList.add('main-trackList-rowSectionVariable');
-      streamCountCell.setAttribute("aria-colindex", "5");
-      streamCountCell.textContent = song.track.popularity.toString(); // Assuming popularity is used as stream count
-      // console.log('streamCountCell', streamCountCell, index)
-      const durationCell = row.querySelector(".main-trackList-rowSectionEnd");
+
+  rows.forEach((row, index) => {
+    // Ensure that the 'aria-colindex' for all elements is updated to accommodate the new popularity column
+    const cells = row.querySelectorAll('[role="gridcell"]');
+    cells.forEach((cell, idx: number) => {
+      cell.setAttribute("aria-colindex", (idx + 1).toString()); // Update existing columns index
+    });
+
+    // Check if the popularity cell already exists to prevent adding it twice
+    let popularityCell = row.querySelector('.main-trackList-popularityCell');
+    if (!popularityCell) {
+      // Create a new cell for popularity if it doesn't exist
+      popularityCell = document.createElement('div');
+      popularityCell.classList.add('main-trackList-rowSectionVariable', 'main-trackList-popularityCell'); // Added class for identification
+      popularityCell.setAttribute("role", "gridcell");
+      popularityCell.setAttribute("aria-colindex", "5"); // Popularity at index 5
+      popularityCell.textContent = likedSongs[index].track.popularity.toString();
+
+      // Find the duration cell to insert before it, or append if not found
+      const durationCell = row.querySelector('.main-trackList-rowSectionEnd');
       if (durationCell) {
-        row.insertBefore(streamCountCell, durationCell);
+        row.insertBefore(popularityCell, durationCell);
       } else {
-        row.appendChild(streamCountCell);
+        row.appendChild(popularityCell); // Append at the end if no duration cell
+      }
+
+      // Adjust duration cell to the new index
+      if (durationCell) {
+        durationCell.setAttribute("aria-colindex", "6");
       }
     }
   });
+
+  const trackList = document.querySelector('.main-trackList-trackList');
+  console.log('trackList', trackList)
 }
 
 async function addStreamCountColumn() {
   const headerRow = document.querySelector('.main-trackList-trackListHeader')!.children[0];
-  // console.log(headerRow)
+  if (!headerRow) {
+    console.error('Header row not found');
+    return;
+  }
 
-  if (headerRow) {
     const popularityColumn = document.createElement("div");
     popularityColumn.classList.add("main-trackList-rowSectionVariable");
     popularityColumn.setAttribute("role", "columnheader");
@@ -94,28 +112,22 @@ async function addStreamCountColumn() {
     popularityColumn.setAttribute("tabindex", "-1");
     popularityColumn.style.display = "flex";
 
-    const popularityColumnContent = document.createElement("div");
-    popularityColumnContent.innerHTML = `
-      <button class="main-trackList-column main-trackList-sortable" tabindex="-1">
-        <span class="Text__TextElement-sc-if376j-0 TextElement-text-bodySmall encore-text-body-small standalone-ellipsis-one-line" data-encore-id="text">Popularity</span>
-      </button>
-    `;
+    // Create a button that when clicked, will sort by popularity
+    const popularityButton = document.createElement("button");
+    popularityButton.className = "main-trackList-column main-trackList-sortable";
+    popularityButton.tabIndex = -1;
+    popularityButton.innerHTML = `<span class="Text__TextElement-sc-if376j-0 TextElement-text-bodySmall encore-text-body-small standalone-ellipsis-one-line" data-encore-id="text">Popularity</span>`;
+    popularityButton.onclick = sortTracksByPopularity
 
-    popularityColumn.appendChild(popularityColumnContent);
+    popularityColumn.appendChild(popularityButton);
 
-    // Find the reference node for insertion (the "Duration" column)
-    const durationColumn = headerRow.querySelector(
-      ".main-trackList-rowSectionEnd"
-    );
-
+    // Insert the "Popularity" column into the header row
+    const durationColumn = headerRow.querySelector(".main-trackList-rowSectionEnd");
     if (durationColumn) {
-      // Insert the "popularity" column before the "Duration" column
       headerRow.insertBefore(popularityColumn, durationColumn);
-
       // Update the aria-colindex attribute of the "Duration" column
       durationColumn.setAttribute("aria-colindex", "6");
     } else {
-      // If the "Duration" column is not found, append the "popularity" column at the end
       headerRow.appendChild(popularityColumn);
     }
 
@@ -126,9 +138,7 @@ async function addStreamCountColumn() {
     if (trackList) {
       trackList.setAttribute("aria-colcount", "6");
 
-      const trackListRowGrid = document.querySelector(
-        ".main-trackList-trackListRowGrid"
-      ) as HTMLElement;
+      const trackListRowGrid = document.querySelector(".main-trackList-trackListRowGrid") as HTMLElement;
       trackListRowGrid.style.gridTemplateColumns = `
       [index] var(--tracklist-index-column-width, 16px)
       [first] minmax(120px, var(--col1, 6fr))
@@ -138,9 +148,42 @@ async function addStreamCountColumn() {
       [last] minmax(120px, var(--col6, 1fr))
     `;
     }
+}
+
+// Function to sort tracks by popularity
+function sortTracksByPopularity() {
+  console.log('Sorting tracks by popularity...');
+
+  const trackList = document.querySelector('.main-trackList-trackList')!.children[1];
+  console.log('trackList', trackList)
+  if (!trackList) {
+    console.error("Track list not found!");
+    return;
   }
 
+  // Gather all the track rows into an array
+  let tracks = Array.from(trackList.querySelectorAll('.main-trackList-trackListRow'));
+
+  // Assuming each row has a 'data-popularity' attribute or we extract from an element
+  tracks.sort((a, b) => {
+    let popA = parseInt(a.querySelector('.main-trackList-popularityCell')!.textContent!);
+    let popB = parseInt(b.querySelector('.main-trackList-popularityCell')!.textContent!);
+    console.log(a, b, popA, popB)
+    return popB - popA; // Sort descending
+  });
+
+  // Clear the existing track list before re-adding sorted rows
+  // console.log('trackList', trackList)
+  while (trackList.firstChild) {
+    trackList.removeChild(trackList.firstChild);
+  }
+
+  // Reattach sorted rows to the DOM
+  tracks.forEach(track => {
+    trackList.appendChild(track); // Appending an existing element moves it to the new position
+  });
 }
+
 
 // MutationObserver to handle new songs added dynamically
 function observeTrackListChanges() {
@@ -173,7 +216,6 @@ function observeTrackListChanges() {
 export default async function app() {
   console.log('Stream Count extension loaded!');
   let isLikedSongsPageDetected = false;
-  const debouncedCheckForLikedSongsPage = debounce(checkForLikedSongsPage, 500);
 
   // Solution 1: Checking for a unique element on the Liked Songs page
   function checkForLikedSongsPage() {
