@@ -11,12 +11,10 @@ async function getAccessToken() {
   } else {
     console.log('Spicetify loaded', Spicetify.Platform)
     try {
-      // await waitForSpicetifyLoaded();
-      // console.log('sdfs')
       accessToken = await Spicetify.Platform.Session.accessToken
-      // const accessToken = await Spicetify.Platform.AuthorizationAPI.getAccessToken()
       console.log('Access Token:', accessToken);
-      updateRowsWithStreamCount();
+      // updateRowsWithStreamCount();
+      checkForPlaylistPage();
       return accessToken;
     } catch (error) {
       console.error('Error retrieving access token:', error);
@@ -58,7 +56,6 @@ async function fetchSongs(playlistId: string) {
 // Function to add stream count for each row
 async function updateRowsWithStreamCount() {
   const rows = document.querySelectorAll('.main-trackList-trackListRow');
-
   rows.forEach((row, index) => {
     // Ensure that the 'aria-colindex' for all elements is updated to accommodate the new popularity column
     const cells = row.querySelectorAll('[role="gridcell"]');
@@ -74,6 +71,7 @@ async function updateRowsWithStreamCount() {
       popularityCell.classList.add('main-trackList-rowSectionVariable', 'main-trackList-popularityCell'); // Added class for identification
       popularityCell.setAttribute("role", "gridcell");
       popularityCell.setAttribute("aria-colindex", "5"); // Popularity at index 5
+      console.log(row, index, currentSongs.length)
       popularityCell.textContent = currentSongs[index].track.popularity.toString();
 
       // Find the duration cell to insert before it, or append if not found
@@ -162,7 +160,6 @@ function observeTrackListChanges() {
         updateRequired = true;  // Set flag to true if any relevant mutation is found
       }
     }
-
     // Check after all mutations if an update is needed
     if (updateRequired) {
       observer.disconnect();  // Disconnect observer before updating the DOM
@@ -189,11 +186,11 @@ async function checkForPlaylistPage() {
       fetchSongs(currentPlaylistId).then(songs => {
         currentSongs = songs;
         updateRowsWithStreamCount();
+        observeTrackListChanges();
       }).catch(error => {
         console.error('Error fetching songs:', error);
       });
       addStreamCountColumn();
-      observeTrackListChanges();
     }
   } else {
     const likedSongsPageElement = document.querySelector('[data-testid="playlist-page"] h1'); // Assuming the h1 with the playlist title is unique to the page
@@ -205,11 +202,11 @@ async function checkForPlaylistPage() {
         fetchSongs('me/tracks').then(songs => {
           currentSongs = songs;
           updateRowsWithStreamCount();
+          observeTrackListChanges();
         }).catch(error => {
           console.error('Error fetching songs:', error);
         });
         addStreamCountColumn();
-        observeTrackListChanges();
         isLikedSongsPageDetected = true;
       }
     } else {
