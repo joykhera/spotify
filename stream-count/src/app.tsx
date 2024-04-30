@@ -48,13 +48,17 @@ async function fetchSongs(playlistId: string) {
 
     return allSongs;
   } catch (error) {
-    console.error('Error fetching songs:', error);
+    console.error('Error fetching songs for :', playlistId, error);
     return [];
   }
 }
 
 // Function to add stream count for each row
 async function updateRowsWithStreamCount() {
+  if (!currentSongs || currentSongs.length === 0) {
+    console.error('No songs found!');
+    return;
+  }
   const rows = document.querySelectorAll('.main-trackList-trackListRow');
   rows.forEach((row, index) => {
     // Ensure that the 'aria-colindex' for all elements is updated to accommodate the new popularity column
@@ -71,7 +75,6 @@ async function updateRowsWithStreamCount() {
       popularityCell.classList.add('main-trackList-rowSectionVariable', 'main-trackList-popularityCell'); // Added class for identification
       popularityCell.setAttribute("role", "gridcell");
       popularityCell.setAttribute("aria-colindex", "5"); // Popularity at index 5
-      console.log(row, index, currentSongs.length)
       popularityCell.textContent = currentSongs[index].track.popularity.toString();
 
       // Find the duration cell to insert before it, or append if not found
@@ -88,53 +91,50 @@ async function updateRowsWithStreamCount() {
       }
     }
   });
-
-  const trackList = document.querySelector('.main-trackList-trackList');
-  // console.log('trackList', trackList)
 }
 
 async function addStreamCountColumn() {
-  const headerRow = document.querySelector('.main-trackList-trackListHeader')!.children[0];
-  if (!headerRow) {
+  const tracklistHeader = document.querySelector('.main-trackList-trackListHeader');
+  if (!tracklistHeader) {
     console.error('Header row not found');
     return;
   }
+  const headerRow = tracklistHeader.children[0] as HTMLElement; // First child is the header row
+  const popularityColumn = document.createElement("div");
+  popularityColumn.classList.add("main-trackList-rowSectionVariable");
+  popularityColumn.setAttribute("role", "columnheader");
+  popularityColumn.setAttribute("aria-colindex", "5");
+  popularityColumn.setAttribute("aria-sort", "none");
+  popularityColumn.setAttribute("tabindex", "-1");
+  popularityColumn.style.display = "flex";
 
-    const popularityColumn = document.createElement("div");
-    popularityColumn.classList.add("main-trackList-rowSectionVariable");
-    popularityColumn.setAttribute("role", "columnheader");
-    popularityColumn.setAttribute("aria-colindex", "5");
-    popularityColumn.setAttribute("aria-sort", "none");
-    popularityColumn.setAttribute("tabindex", "-1");
-    popularityColumn.style.display = "flex";
+  // Create a button that when clicked, will sort by popularity
+  const popularityButton = document.createElement("button");
+  popularityButton.className = "main-trackList-column main-trackList-sortable";
+  popularityButton.tabIndex = -1;
+  popularityButton.innerHTML = `<span class="Text__TextElement-sc-if376j-0 TextElement-text-bodySmall encore-text-body-small standalone-ellipsis-one-line" data-encore-id="text">Popularity</span>`;
 
-    // Create a button that when clicked, will sort by popularity
-    const popularityButton = document.createElement("button");
-    popularityButton.className = "main-trackList-column main-trackList-sortable";
-    popularityButton.tabIndex = -1;
-    popularityButton.innerHTML = `<span class="Text__TextElement-sc-if376j-0 TextElement-text-bodySmall encore-text-body-small standalone-ellipsis-one-line" data-encore-id="text">Popularity</span>`;
+  popularityColumn.appendChild(popularityButton);
 
-    popularityColumn.appendChild(popularityButton);
+  // Insert the "Popularity" column into the header row
+  const durationColumn = headerRow.querySelector(".main-trackList-rowSectionEnd");
+  if (durationColumn) {
+    headerRow.insertBefore(popularityColumn, durationColumn);
+    // Update the aria-colindex attribute of the "Duration" column
+    durationColumn.setAttribute("aria-colindex", "6");
+  } else {
+    headerRow.appendChild(popularityColumn);
+  }
 
-    // Insert the "Popularity" column into the header row
-    const durationColumn = headerRow.querySelector(".main-trackList-rowSectionEnd");
-    if (durationColumn) {
-      headerRow.insertBefore(popularityColumn, durationColumn);
-      // Update the aria-colindex attribute of the "Duration" column
-      durationColumn.setAttribute("aria-colindex", "6");
-    } else {
-      headerRow.appendChild(popularityColumn);
-    }
+  // Update the grid template columns for the track list rows
+  const trackList = document.querySelector(
+    ".main-trackList-trackList.main-trackList-indexable"
+  );
+  if (trackList) {
+    trackList.setAttribute("aria-colcount", "6");
 
-    // Update the grid template columns for the track list rows
-    const trackList = document.querySelector(
-      ".main-trackList-trackList.main-trackList-indexable"
-    );
-    if (trackList) {
-      trackList.setAttribute("aria-colcount", "6");
-
-      const trackListRowGrid = document.querySelector(".main-trackList-trackListRowGrid") as HTMLElement;
-      trackListRowGrid.style.gridTemplateColumns = `
+    const trackListRowGrid = document.querySelector(".main-trackList-trackListRowGrid") as HTMLElement;
+    trackListRowGrid.style.gridTemplateColumns = `
       [index] var(--tracklist-index-column-width, 16px)
       [first] minmax(120px, var(--col1, 6fr))
       [var1] minmax(120px, var(--col2, 4fr))
@@ -142,7 +142,7 @@ async function addStreamCountColumn() {
       [var3] minmax(120px, var(--col4, 2fr))
       [last] minmax(120px, var(--col6, 1fr))
     `;
-    }
+  }
 }
 
 // MutationObserver to handle new songs added dynamically
@@ -156,6 +156,7 @@ function observeTrackListChanges() {
   const observer = new MutationObserver((mutations) => {
     let updateRequired = false;  // Flag to track if an update is needed
     for (const mutation of mutations) {
+      // console.log('mutation', mutation, mutation.type, mutation.addedNodes.length)
       if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
         updateRequired = true;  // Set flag to true if any relevant mutation is found
       }
@@ -172,47 +173,56 @@ function observeTrackListChanges() {
 }
 
 async function checkForPlaylistPage() {
-  // const playlistPageElement = document.querySelector('[data-testid="playlist-page"]');
   const playlistPageElement = document.querySelector('section[data-test-uri]');
+
   if (playlistPageElement) {
     const testUri = playlistPageElement.getAttribute('data-test-uri');
-    const playlistId = testUri!.split(':').pop();
-    // console.log('playlistPageElement', playlistPageElement)
-    if (playlistId && playlistId !== currentPlaylistId) {
-      currentPlaylistId = playlistId;
-      console.log('Playlist found! ID:', currentPlaylistId);
-      // songs = await fetchSongs(currentPlaylistId);
-      // Fetch songs asynchronously and update the rows once data is ready
-      fetchSongs(currentPlaylistId).then(songs => {
-        currentSongs = songs;
-        updateRowsWithStreamCount();
-        observeTrackListChanges();
-      }).catch(error => {
-        console.error('Error fetching songs:', error);
-      });
-      addStreamCountColumn();
-    }
-  } else {
-    const likedSongsPageElement = document.querySelector('[data-testid="playlist-page"] h1'); // Assuming the h1 with the playlist title is unique to the page
-    if (likedSongsPageElement && likedSongsPageElement.textContent === 'Liked Songs') {
-      if (!isLikedSongsPageDetected) {
-        console.log('Liked songs page found!');
-        // songs = await fetchSongs('me/tracks');
-        // Fetch songs asynchronously and update the rows once data is ready
-        fetchSongs('me/tracks').then(songs => {
+    const uriParts = testUri!.split(':');
+
+    // Assuming that playlist URIs contain "playlist" as part of their structure
+    if (uriParts.includes('playlist')) {
+      const playlistId = uriParts.pop();
+      if (playlistId && playlistId !== currentPlaylistId) {
+        currentPlaylistId = playlistId;
+        isLikedSongsPageDetected = false
+        console.log('Playlist found! ID:', currentPlaylistId);
+
+        fetchSongs(currentPlaylistId).then(songs => {
           currentSongs = songs;
           updateRowsWithStreamCount();
           observeTrackListChanges();
         }).catch(error => {
           console.error('Error fetching songs:', error);
         });
+
         addStreamCountColumn();
-        isLikedSongsPageDetected = true;
+        return
       }
-    } else {
-      isLikedSongsPageDetected = false; // Reset the flag if not on the page
     }
   }
+
+  const likedSongsPageElement = document.querySelector('[data-testid="playlist-page"] h1');
+  if (likedSongsPageElement && likedSongsPageElement.textContent === 'Liked Songs') {
+    if (!isLikedSongsPageDetected) {
+      isLikedSongsPageDetected = true;
+      currentPlaylistId = null;
+      console.log('Liked songs page found!');
+
+      fetchSongs('me/tracks').then(songs => {
+        currentSongs = songs;
+        updateRowsWithStreamCount();
+        observeTrackListChanges();
+      }).catch(error => {
+        console.error('Error fetching songs:', error);
+      });
+
+      addStreamCountColumn();
+      return
+    }
+  } else {
+    isLikedSongsPageDetected = false; // Reset the flag if not on the page
+  }
+  currentPlaylistId = null; // Reset the playlist ID if not on the page
 }
 
 export default async function app() {
@@ -220,7 +230,9 @@ export default async function app() {
   // MutationObserver to detect page changes
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
+      // if (mutation.type === 'childList' && mutation.target === document.body && mutation.nextSibling) {
       if (mutation.type === 'childList' && mutation.target === document.body) {
+        console.log('mutation', mutation, mutation.previousSibling, mutation.nextSibling)
         checkForPlaylistPage();
       }
     });
