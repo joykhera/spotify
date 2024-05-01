@@ -4,7 +4,7 @@ let currentPlaylistId: string | null = null;
 let isLikedSongsPageDetected = false;
 let currentSongs: any[] = [];
 
-async function getAccessToken() {
+async function getAccessToken(forceRefresh = false) {
   if (typeof Spicetify === "undefined" || !Spicetify.Platform || !Spicetify.Platform.AuthorizationAPI) {
     console.log("Spicetify is not loaded yet. Waiting...");
     setTimeout(getAccessToken, 1000); // Check every second
@@ -38,6 +38,11 @@ async function fetchSongs(playlistId: string) {
       });
 
       if (!response.ok) {
+        if (response.status === 401) { // Token has expired
+          console.log('Token expired, refreshing token...');
+          await getAccessToken(true); // Force refresh of token
+          return fetchSongs(playlistId); // Retry fetch with new token
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -232,7 +237,7 @@ export default async function app() {
     mutations.forEach((mutation) => {
       // if (mutation.type === 'childList' && mutation.target === document.body && mutation.nextSibling) {
       if (mutation.type === 'childList' && mutation.target === document.body) {
-        console.log('mutation', mutation, mutation.previousSibling, mutation.nextSibling)
+        // console.log('mutation', mutation, mutation.previousSibling, mutation.nextSibling)
         checkForPlaylistPage();
       }
     });
