@@ -10,8 +10,8 @@ load_dotenv()
 
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-REDIRECT_URI = "http://localhost:5000/callback"
-SCOPE = "user-library-read"
+REDIRECT_URI = os.getenv("REDIRECT_URI")
+SCOPE = "user-library-read user-read-currently-playing user-read-recently-played"
 STATE = ""
 SHOW_DIALOG = True
 
