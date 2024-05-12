@@ -1,0 +1,24 @@
+{
+  "name": "show_genre",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "spicetify-creator",
+    "build-local": "spicetify-creator --out=dist --minify",
+    "watch": "spicetify-creator --watch"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/react": "^18.3.2",
+    "@types/react-dom": "^18.3.0",
+    "spicetify-creator": "^1.0.17"
+  },
+  "dependencies": {
+    "@langchain/google-genai": "^0.0.12",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.4.5",
+    "langchain": "^0.1.37",
+    "os": "^0.1.2",
+    "path": "^0.12.7"
+  }
+}

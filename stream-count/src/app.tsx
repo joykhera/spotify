@@ -6,13 +6,12 @@ let currentSongs: any[] = [];
 
 async function getAccessToken(forceRefresh = false) {
   if (typeof Spicetify === "undefined" || !Spicetify.Platform || !Spicetify.Platform.AuthorizationAPI) {
-    console.log("Spicetify is not loaded yet. Waiting...");
     setTimeout(getAccessToken, 1000); // Check every second
   } else {
     console.log('Spicetify loaded', Spicetify.Platform)
     try {
       accessToken = await Spicetify.Platform.Session.accessToken
-      console.log('Access Token:', accessToken);
+      // console.log('Access Token:', accessToken);
       // updateRowsWithStreamCount();
       checkForPlaylistPage();
       return accessToken;
