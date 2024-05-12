@@ -11,7 +11,6 @@ async function getAccessToken(forceRefresh = false) {
     console.log('Spicetify loaded', Spicetify.Platform)
     try {
       accessToken = await Spicetify.Platform.Session.accessToken
-      // console.log('Access Token:', accessToken);
       // updateRowsWithStreamCount();
       checkForPlaylistPage();
       return accessToken;

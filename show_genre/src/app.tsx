@@ -1,21 +1,10 @@
-// This imports the new Gemini LLM
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-
-// This imports the mechanism that helps create the messages
-// called `prompts` we send to the LLM
-import { PromptTemplate } from "langchain/prompts";
-
-// This imports the tool called `chains` that helps combine
-// the model and prompts so we can communicate with the LLM
-import { LLMChain } from "langchain/chains";
-
-// This helps connect to our .env file
-import * as dotenv from "dotenv";
-dotenv.config();
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Constants
 let accessToken: string | null = null;
 let gemini_api_key = 'AIzaSyDKOdPZGOsD8kCR5ZXhIjGIHde_flrxWuo'
+let genreDisplay: HTMLDivElement | null = null;
+let genre: string | null = null;
 
 async function getAccessToken(forceRefresh = false) {
   if (typeof Spicetify === "undefined" || !Spicetify.Platform || !Spicetify.Platform.AuthorizationAPI) {
@@ -62,65 +51,24 @@ async function fetchCurrentOrLastPlayedSong() {
 
 // Function to query the Gemini API
 async function askGemini(trackName: string, artistName: string) {
-  // const payload = {
-  //   question: question,
-  //   temperature: 0,  // Controls randomness
-  //   top_p: 1,
-  //   top_k: 1,
-  //   max_output_tokens: 100,
-  // };
-  // We create our model and pass it our model name
-  // which is `gemini-pro`. Another option is to pass
-  // `gemini-pro-vision` if we were also sending an image
-  // in our prompt
-  const geminiModel = new ChatGoogleGenerativeAI({
-    modelName: "gemini-pro",
-  });
+  const generationConfig = {
+    temperature: 0,  // Controls randomness
+    top_p: 1,
+    top_k: 1,
+    max_output_tokens: 100,
+  };
 
-  const template = `What genre is the song {trackName} by {artistName}?`;
-  const promptTemplate = new PromptTemplate({
-    template,
-    inputVariables: ["emojis"],
-  });
+  // Access your API key (see "Set up your API key" above)
+  const genAI = new GoogleGenerativeAI(gemini_api_key);
 
+    // For text-only input, use the gemini-pro model
+  const model = genAI.getGenerativeModel({ model: "gemini-pro", generationConfig });
+  const prompt = `What genre is the song ${trackName} by ${artistName}?`;
 
-  // We then use a chain to combine our LLM with our
-  // prompt template
-  const llmChain = new LLMChain({
-    llm: geminiModel,
-    prompt: promptTemplate,
-  });
-
-  // We then call the chain to communicate with the LLM
-  // and pass in the emojis we want to be explained.
-  // Note that the property name `emojis` below must match the
-  // variable name in the template earlier created.
-  const result = await llmChain.call({
-    trackName: trackName,
-    artistName: artistName,
-  });
-
-  // Log result to the console
-  console.log(result.text);
-  return result.text;
-
-  // const headers = {
-  //   "Authorization": `Bearer ${gemini_api_key}`,
-  //   "Content-Type": "application/json",
-  // };
-  // try {
-  //   const response = await fetch("https://api.gemini.com/generate-text", {
-  //     method: "POST",
-  //     headers: headers,
-  //     body: JSON.stringify(payload)
-  //   });
-  //   const data = await response.json();
-  //   // console.log(question, response.status, data)
-  //   return data.text;
-  // } catch (e) {
-  //   console.error("Error communicating with Gemini API: ", e);
-  //   return "Unknown genre";
-  // }
+  const result = await model.generateContent(prompt);
+  const response = result.response.text();
+  console.log(prompt, response);
+  return response
 }
 
 
@@ -137,11 +85,10 @@ async function fetchSongGenre() {
   if (songData) {
     const trackName = songData.name;
     const artistName = songData.artists[0].name;
-    // const genre = await askGemini(promptTemplate); // Replace 'YOUR_GEMINI_API_KEY' with your actual API key
-    const genre = await askGemini(trackName, artistName); // Replace 'YOUR_GEMINI_API_KEY' with your actual API key
+    genre = await askGemini(trackName, artistName); // Replace 'YOUR_GEMINI_API_KEY' with your actual API key
 
     // Ensure the genre display container is ready
-    const genreDisplay = createGenreDisplay();
+    if(!genreDisplay) createGenreDisplay();
     if (genreDisplay) {
       updateGenreDisplay(genreDisplay, genre); // Update the genre text
     } else {
@@ -156,32 +103,39 @@ async function fetchSongGenre() {
 
 // Function to ensure the genre display div is created and ready
 function createGenreDisplay() {
-  const trackInfoContainer = document.querySelector('.main-nowPlayingView-trackInfo main-trackInfo-container');
+  // console.log(document.body)
+  // console.log(document.querySelector('.main-nowPlayingView-trackInfo'))
+  // console.log(document.querySelector('.main-trackInfo-container'))
+  const trackInfoContainer = document.querySelector('.main-nowPlayingView-trackInfo') as HTMLDivElement;
   console.log(trackInfoContainer);
   if (!trackInfoContainer) {
     console.log("Track info container not found.");
     return null;
   }
-
-  let genreDisplay = document.querySelector('.genre-display');
+  trackInfoContainer.style.gridTemplateAreas = `"title" "subtitle" "genre"`;
+  let genreDisplay = document.querySelector('.main-trackinfo-genre') as HTMLDivElement;
   if (!genreDisplay) {
     genreDisplay = document.createElement('div');
-    genreDisplay.className = 'genre-display';
+    genreDisplay.className = 'main-trackInfo-genre';
+    // genreDisplay.style.display = 'block';
+    genreDisplay.style.gridArea = "subtitle";
     trackInfoContainer.appendChild(genreDisplay);
   }
-  return genreDisplay as HTMLDivElement;
+  if (genre) updateGenreDisplay(genreDisplay, genre); // Update the genre text
+  else console.log("Genre not available.");
 }
 
 // Function to update the genre display with new genre data
 function updateGenreDisplay(genreDisplay: HTMLDivElement, genre: string) {
-  if (genreDisplay && genre && genreDisplay.textContent !== `Genre: ${genre}`) {
-    genreDisplay.textContent = `Genre: ${genre}`;
+  if (genreDisplay && genre && genreDisplay.textContent !== genre) {
+    genreDisplay.textContent = genre;
   }
+  console.log('updateGenreDisplay', genreDisplay)
 }
 
 
 export default async function app() {
   console.log('Show genre extension loaded!');
+  document.addEventListener('DOMContentLoaded', createGenreDisplay);
   getAccessToken();
-  createGenreDisplay()
 }
