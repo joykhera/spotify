@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 // Constants
 let accessToken: string | null = null;
 let gemini_api_key = 'AIzaSyDKOdPZGOsD8kCR5ZXhIjGIHde_flrxWuo'
-let genreDisplay: HTMLDivElement | null = null;
+let genreDisplays: HTMLDivElement[] = [];
 let genre: string | null = null;
 
 async function getAccessToken(forceRefresh = false) {
@@ -61,7 +61,7 @@ async function askGemini(trackName: string, artistName: string) {
   // Access your API key (see "Set up your API key" above)
   const genAI = new GoogleGenerativeAI(gemini_api_key);
 
-    // For text-only input, use the gemini-pro model
+  // For text-only input, use the gemini-pro model
   const model = genAI.getGenerativeModel({ model: "gemini-pro", generationConfig });
   const prompt = `What genre is the song ${trackName} by ${artistName}?`;
 
@@ -88,9 +88,9 @@ async function fetchSongGenre() {
     genre = await askGemini(trackName, artistName); // Replace 'YOUR_GEMINI_API_KEY' with your actual API key
 
     // Ensure the genre display container is ready
-    if(!genreDisplay) createGenreDisplay();
-    if (genreDisplay) {
-      updateGenreDisplay(genreDisplay, genre); // Update the genre text
+    if (!genreDisplays || genreDisplays.length == 0) createGenreDisplay();
+    if (genreDisplays) {
+      updateGenreDisplay(genreDisplays, genre); // Update the genre text
     } else {
       console.log("Genre display container could not be created.");
     }
@@ -103,34 +103,42 @@ async function fetchSongGenre() {
 
 // Function to ensure the genre display div is created and ready
 function createGenreDisplay() {
-  // console.log(document.body)
-  // console.log(document.querySelector('.main-nowPlayingView-trackInfo'))
-  // console.log(document.querySelector('.main-trackInfo-container'))
-  const trackInfoContainer = document.querySelector('.main-nowPlayingView-trackInfo') as HTMLDivElement;
-  console.log(trackInfoContainer);
-  if (!trackInfoContainer) {
+  console.log(document.querySelector('.main-nowPlayingView-trackInfo'))
+  console.log(document.querySelector('.main-trackInfo-container'))
+  // const trackInfoContainer = document.querySelector('.main-nowPlayingView-trackInfo') as HTMLDivElement;
+  const trackInfoContainers = document.querySelectorAll('.main-trackInfo-container') as NodeListOf<HTMLDivElement>;
+  console.log(trackInfoContainers);
+  if (!trackInfoContainers || trackInfoContainers.length === 0) {
     console.log("Track info container not found.");
     return null;
   }
-  trackInfoContainer.style.gridTemplateAreas = `"title" "subtitle" "genre"`;
-  let genreDisplay = document.querySelector('.main-trackinfo-genre') as HTMLDivElement;
-  if (!genreDisplay) {
-    genreDisplay = document.createElement('div');
-    genreDisplay.className = 'main-trackInfo-genre';
-    // genreDisplay.style.display = 'block';
-    genreDisplay.style.gridArea = "subtitle";
-    trackInfoContainer.appendChild(genreDisplay);
-  }
-  if (genre) updateGenreDisplay(genreDisplay, genre); // Update the genre text
+  trackInfoContainers.forEach((trackInfoContainer) => {
+    trackInfoContainer.style.gridTemplate = `"pretitle pretitle" "title title" "badges subtitle" "genre genre"/auto 1fr`;
+    let genreDisplay = document.querySelector('.main-trackinfo-genre') as HTMLDivElement;
+    if (!genreDisplay) {
+      genreDisplay = document.createElement('div');
+      genreDisplay.className = 'main-trackInfo-genre';
+      // genreDisplay.style.display = 'block';
+      genreDisplay.style.gridArea = "genre";
+      const innerDiv = document.createElement('div');
+      innerDiv.className = 'Text__TextElement-sc-if376j-0 TextElement-text-marginal-textSubdued encore-text-marginal main-trackInfo-genre';
+      genreDisplay.appendChild(innerDiv);
+      trackInfoContainer.appendChild(genreDisplay);
+      genreDisplays.push(genreDisplay);
+    }
+  });
+  if (genre) updateGenreDisplay(genreDisplays, genre); // Update the genre text
   else console.log("Genre not available.");
 }
 
 // Function to update the genre display with new genre data
-function updateGenreDisplay(genreDisplay: HTMLDivElement, genre: string) {
-  if (genreDisplay && genre && genreDisplay.textContent !== genre) {
-    genreDisplay.textContent = genre;
-  }
-  console.log('updateGenreDisplay', genreDisplay)
+function updateGenreDisplay(genreDisplays: HTMLDivElement[], genre: string) {
+  genreDisplays.forEach((genreDisplay) => {
+    if (genreDisplay && genre && genreDisplay.textContent !== genre && genreDisplay.childElementCount > 0) {
+      genreDisplay.children[0].textContent = genre;
+    }
+    console.log('updateGenreDisplay', genreDisplay)
+  });
 }
 
 
