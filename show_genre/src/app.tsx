@@ -10,10 +10,8 @@ async function getAccessToken(forceRefresh = false) {
   if (typeof Spicetify === "undefined" || !Spicetify.Platform || !Spicetify.Platform.AuthorizationAPI) {
     setTimeout(getAccessToken, 1000); // Check every second
   } else {
-    console.log('Spicetify loaded', Spicetify.Platform)
     try {
       accessToken = await Spicetify.Platform.Session.accessToken
-      // console.log('Access Token:', accessToken);
       fetchSongGenre();
       return accessToken;
     } catch (error) {
@@ -58,30 +56,24 @@ async function askGemini(trackName: string, artistName: string) {
     max_output_tokens: 100,
   };
 
-  // Access your API key (see "Set up your API key" above)
   const genAI = new GoogleGenerativeAI(gemini_api_key);
-
-  // For text-only input, use the gemini-pro model
   const model = genAI.getGenerativeModel({ model: "gemini-pro", generationConfig });
   const prompt = `What genre is the song ${trackName} by ${artistName}?`;
-
   const result = await model.generateContent(prompt);
   const response = result.response.text();
-  console.log(prompt, response);
+  // console.log('prompt', prompt, 'response', response);
   return response
 }
 
 
 // Function to fetch the genre and update the UI
 async function fetchSongGenre() {
-  console.log("Fetching song genre...");
   if (!accessToken) {
     console.error("No access token available.");
     return;
   }
 
   const songData = await fetchCurrentOrLastPlayedSong();
-  console.log(songData);
   if (songData) {
     const trackName = songData.name;
     const artistName = songData.artists[0].name;
@@ -95,7 +87,7 @@ async function fetchSongGenre() {
       console.log("Genre display container could not be created.");
     }
 
-    console.log(trackName, ",", artistName, ":", genre);
+    // console.log(trackName, ",", artistName, ":", genre);
   } else {
     console.log("No song data available.");
   }
@@ -103,11 +95,7 @@ async function fetchSongGenre() {
 
 // Function to ensure the genre display div is created and ready
 function createGenreDisplay() {
-  console.log(document.querySelector('.main-nowPlayingView-trackInfo'))
-  console.log(document.querySelector('.main-trackInfo-container'))
-  // const trackInfoContainer = document.querySelector('.main-nowPlayingView-trackInfo') as HTMLDivElement;
   const trackInfoContainers = document.querySelectorAll('.main-trackInfo-container') as NodeListOf<HTMLDivElement>;
-  console.log(trackInfoContainers);
   if (!trackInfoContainers || trackInfoContainers.length === 0) {
     console.log("Track info container not found.");
     return null;
@@ -118,7 +106,6 @@ function createGenreDisplay() {
     if (!genreDisplay) {
       genreDisplay = document.createElement('div');
       genreDisplay.className = 'main-trackInfo-genre';
-      // genreDisplay.style.display = 'block';
       genreDisplay.style.gridArea = "genre";
       const innerDiv = document.createElement('div');
       innerDiv.className = 'Text__TextElement-sc-if376j-0 TextElement-text-marginal-textSubdued encore-text-marginal main-trackInfo-genre';
@@ -137,7 +124,6 @@ function updateGenreDisplay(genreDisplays: HTMLDivElement[], genre: string) {
     if (genreDisplay && genre && genreDisplay.textContent !== genre && genreDisplay.childElementCount > 0) {
       genreDisplay.children[0].textContent = genre;
     }
-    console.log('updateGenreDisplay', genreDisplay)
   });
 }
 
@@ -145,5 +131,6 @@ function updateGenreDisplay(genreDisplays: HTMLDivElement[], genre: string) {
 export default async function app() {
   console.log('Show genre extension loaded!');
   document.addEventListener('DOMContentLoaded', createGenreDisplay);
-  getAccessToken();
+  await getAccessToken();
+  Spicetify.Player.addEventListener("songchange", fetchSongGenre);
 }

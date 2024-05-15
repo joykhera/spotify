@@ -8,7 +8,6 @@ async function getAccessToken(forceRefresh = false) {
   if (typeof Spicetify === "undefined" || !Spicetify.Platform || !Spicetify.Platform.AuthorizationAPI) {
     setTimeout(getAccessToken, 1000); // Check every second
   } else {
-    console.log('Spicetify loaded', Spicetify.Platform)
     try {
       accessToken = await Spicetify.Platform.Session.accessToken
       // updateRowsWithStreamCount();
