@@ -6,11 +6,14 @@ let currentSongs: any[] = [];
 
 async function getAccessToken(forceRefresh = false) {
   if (typeof Spicetify === "undefined" || !Spicetify.Platform || !Spicetify.Platform.AuthorizationAPI) {
-    setTimeout(getAccessToken, 1000); // Check every second
+    setTimeout(() => getAccessToken(forceRefresh), 1000); // Check every second
   } else {
     try {
-      accessToken = await Spicetify.Platform.Session.accessToken
-      // updateRowsWithStreamCount();
+      accessToken = await Spicetify.Platform.Session.accessToken;
+      if (forceRefresh) console.log('old access token', accessToken)
+      // if (forceRefresh) console.log('Spicetify.Platform.AuthorizationAPI', Spicetify.Platform.AuthorizationAPI)
+      if (forceRefresh) accessToken = await Spicetify.Platform.AuthorizationAPI._tokenProvider({ preferCached: false })['accessToken'];
+      if (forceRefresh) console.log('new access token', accessToken)
       checkForPlaylistPage();
       return accessToken;
     } catch (error) {
@@ -62,6 +65,7 @@ async function updateRowsWithStreamCount() {
     return;
   }
   const rows = document.querySelectorAll('.main-trackList-trackListRow');
+  if (rows.length > currentSongs.length) console.log('More rows than songs:', rows.length, currentSongs.length);
   rows.forEach((row, index) => {
     // Ensure that the 'aria-colindex' for all elements is updated to accommodate the new popularity column
     const cells = row.querySelectorAll('[role="gridcell"]');
@@ -101,42 +105,45 @@ async function addStreamCountColumn() {
     console.error('Header row not found');
     return;
   }
+
   const headerRow = tracklistHeader.children[0] as HTMLElement; // First child is the header row
-  const popularityColumn = document.createElement("div");
-  popularityColumn.classList.add("main-trackList-rowSectionVariable");
-  popularityColumn.setAttribute("role", "columnheader");
-  popularityColumn.setAttribute("aria-colindex", "5");
-  popularityColumn.setAttribute("aria-sort", "none");
-  popularityColumn.setAttribute("tabindex", "-1");
-  popularityColumn.style.display = "flex";
+  if (!headerRow.querySelector("[aria-colindex='6']")) {
+    console.log('number of cols', headerRow.querySelectorAll('[role="columnheader"]').length)
+    const popularityColumn = document.createElement("div");
+    popularityColumn.classList.add("main-trackList-rowSectionVariable");
+    popularityColumn.setAttribute("role", "columnheader");
+    popularityColumn.setAttribute("aria-colindex", "5");
+    popularityColumn.setAttribute("aria-sort", "none");
+    popularityColumn.setAttribute("tabindex", "-1");
+    popularityColumn.style.display = "flex";
 
-  // Create a button that when clicked, will sort by popularity
-  const popularityButton = document.createElement("button");
-  popularityButton.className = "main-trackList-column main-trackList-sortable";
-  popularityButton.tabIndex = -1;
-  popularityButton.innerHTML = `<span class="Text__TextElement-sc-if376j-0 TextElement-text-bodySmall encore-text-body-small standalone-ellipsis-one-line" data-encore-id="text">Popularity</span>`;
+    // Create a button that when clicked, will sort by popularity
+    const popularityButton = document.createElement("button");
+    popularityButton.className = "main-trackList-column main-trackList-sortable";
+    popularityButton.tabIndex = -1;
+    popularityButton.innerHTML = `<span class="Text__TextElement-sc-if376j-0 TextElement-text-bodySmall encore-text-body-small standalone-ellipsis-one-line" data-encore-id="text">Popularity</span>`;
 
-  popularityColumn.appendChild(popularityButton);
+    popularityColumn.appendChild(popularityButton);
 
-  // Insert the "Popularity" column into the header row
-  const durationColumn = headerRow.querySelector(".main-trackList-rowSectionEnd");
-  if (durationColumn) {
-    headerRow.insertBefore(popularityColumn, durationColumn);
-    // Update the aria-colindex attribute of the "Duration" column
-    durationColumn.setAttribute("aria-colindex", "6");
-  } else {
-    headerRow.appendChild(popularityColumn);
-  }
+    // Insert the "Popularity" column into the header row
+    const durationColumn = headerRow.querySelector(".main-trackList-rowSectionEnd");
+    if (durationColumn) {
+      headerRow.insertBefore(popularityColumn, durationColumn);
+      // Update the aria-colindex attribute of the "Duration" column
+      durationColumn.setAttribute("aria-colindex", "6");
+    } else {
+      headerRow.appendChild(popularityColumn);
+    }
 
-  // Update the grid template columns for the track list rows
-  const trackList = document.querySelector(
-    ".main-trackList-trackList.main-trackList-indexable"
-  );
-  if (trackList) {
-    trackList.setAttribute("aria-colcount", "6");
+    // Update the grid template columns for the track list rows
+    const trackList = document.querySelector(
+      ".main-trackList-trackList.main-trackList-indexable"
+    );
+    if (trackList) {
+      trackList.setAttribute("aria-colcount", "6");
 
-    const trackListRowGrid = document.querySelector(".main-trackList-trackListRowGrid") as HTMLElement;
-    trackListRowGrid.style.gridTemplateColumns = `
+      const trackListRowGrid = document.querySelector(".main-trackList-trackListRowGrid") as HTMLElement;
+      trackListRowGrid.style.gridTemplateColumns = `
       [index] var(--tracklist-index-column-width, 16px)
       [first] minmax(120px, var(--col1, 6fr))
       [var1] minmax(120px, var(--col2, 4fr))
@@ -144,6 +151,7 @@ async function addStreamCountColumn() {
       [var3] minmax(120px, var(--col4, 2fr))
       [last] minmax(120px, var(--col6, 1fr))
     `;
+    }
   }
 }
 

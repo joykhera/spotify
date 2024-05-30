@@ -8,10 +8,13 @@ let genre: string | null = null;
 
 async function getAccessToken(forceRefresh = false) {
   if (typeof Spicetify === "undefined" || !Spicetify.Platform || !Spicetify.Platform.AuthorizationAPI) {
-    setTimeout(getAccessToken, 1000); // Check every second
+    setTimeout(() => getAccessToken(forceRefresh), 1000); // Check every second
   } else {
     try {
-      accessToken = await Spicetify.Platform.Session.accessToken
+      accessToken = await Spicetify.Platform.Session.accessToken;
+      if (forceRefresh) console.log('old access token', accessToken)
+      if (forceRefresh) accessToken = (await Spicetify.Platform.AuthorizationAPI._tokenProvider({ preferCached: false }))['accessToken'];
+      if (forceRefresh) console.log('new access token', accessToken)
       fetchSongGenre();
       return accessToken;
     } catch (error) {
@@ -20,6 +23,7 @@ async function getAccessToken(forceRefresh = false) {
     }
   }
 }
+
 
 // Ensure Spicetify is loaded
 if (!window.Spicetify) {
@@ -34,10 +38,17 @@ async function fetchCurrentOrLastPlayedSong() {
   };
   try {
     let response = await fetch("https://api.spotify.com/v1/me/player/currently-playing", { headers });
-    if (response.status === 204 || !response.ok) {
+    if (response.status === 204) {
       response = await fetch("https://api.spotify.com/v1/me/player/recently-played?limit=1", { headers });
       const data = await response.json();
+      if (!data.items || data.items.length === 0) {
+        console.log('could not fetch recently played songs', data)
+        return null;
+      }
       return data.items.length > 0 ? data.items[0].track : null;
+    }
+    else if (response.status === 401) {
+      getAccessToken(true);
     }
     const data = await response.json();
     return data.item;
@@ -68,6 +79,7 @@ async function askGemini(trackName: string, artistName: string) {
 
 // Function to fetch the genre and update the UI
 async function fetchSongGenre() {
+  console.log('song changed')
   if (!accessToken) {
     console.error("No access token available.");
     return;
@@ -87,7 +99,7 @@ async function fetchSongGenre() {
       console.log("Genre display container could not be created.");
     }
 
-    // console.log(trackName, ",", artistName, ":", genre);
+    console.log(trackName, ",", artistName, ":", genre);
   } else {
     console.log("No song data available.");
   }
